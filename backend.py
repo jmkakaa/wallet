@@ -219,6 +219,7 @@ async def make_admin(user_id: int):
 async def me(user_id: int = Query(..., ge=1)):
     conn = await db()
     await ensure_user(conn, user_id)
+    await conn.commit()
     cur = await conn.execute("SELECT amount FROM balances WHERE user_id = ?", (user_id,))
     row = await cur.fetchone()
     balance = dec2(row[0] if row else 0)
@@ -231,6 +232,7 @@ async def history(
 ):
     conn = await db()
     await ensure_user(conn, user_id)
+    await conn.commit()
     cur = await conn.execute(
         """
         SELECT from_user, to_user, amount, ts
