@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import uuid
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Union, Optional, List, Dict
 
@@ -313,7 +314,8 @@ async def deposit_create(body: DepositCreateIn):
 
     conn = await db()
     await ensure_user(conn, body.user_id)
-    label = f"dep:{body.user_id}:{int(time.time())}"
+    # Используем UUID, чтобы избежать коллизий меток при нескольких запросах в одну секунду
+    label = f"dep:{body.user_id}:{uuid.uuid4().hex}"
 
     now = int(time.time())
 
