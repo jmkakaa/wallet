@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Кошелёк</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    /* ===== 1) БАЗА И ЦВЕТА ===== */
+    :root{
+      --bg: #0f1b24;
+      --panel: #0a0f14;
+      --text: #ffffff;
+      --muted: #a6b3bf;
+      --primary: #2f8cff;
+      --primary-weak: #e8f0ff;
+      --success: #12b76a;
+      --danger: #ef4444;
+      --card-grad-1:#25b4ff; --card-grad-2:#24d39e;
+      --radius-xl: 20px;
+      --radius-lg: 16px;
+      --radius-md: 14px;
+      --shadow: 0 8px 24px rgba(0,0,0,.25);
+      --maxw: 480px; /* ширина контейнера */
+      --tabbar-h: 72px;
+    }
+
+    *,*::before,*::after{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+    html{ height:100%; }
+    body{
+      min-height:100%;
+      background:var(--bg);
+      color:var(--text);
+      overflow-x:hidden;       /* фиксируем горизонтальный скролл */
+      max-width:100%;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      font: 500 16px/1.45 system-ui, -apple-system, "SF Pro Text",
+            Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    img,svg,canvas,video{ display:block; max-width:100%; height:auto; }
+
+    /* ===== 2) КОНТЕЙНЕР И СЕТКА ===== */
+    .app{
+      width:100%;
+      max-width:var(--maxw);
+      margin:0 auto;
+      min-height:100dvh;
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .content{
+      flex:1 1 auto;
+      padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px);
+    }
+
+    /* ===== 3) КАРТОЧКИ ===== */
+    .card{
+      width:100%;
+      border-radius:var(--radius-xl);
+      background:linear-gradient(135deg,var(--card-grad-1),var(--card-grad-2));
+      padding:20px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card__title{
+      font: 800 clamp(20px,3.8vw,28px)/1.15 system-ui, -apple-system, "SF Pro Display", Segoe UI, Roboto, Arial;
+      letter-spacing:.2px;
+    }
+    .id{
+      margin-top:6px;
+      color:#e8f2fb;
+      font-weight:600;
+      opacity:.9;
+    }
+    .balance{
+      margin:18px 0 20px;
+      font: 900 clamp(34px,8vw,44px)/1.05 system-ui, -apple-system, "SF Pro Display", Segoe UI, Roboto, Arial;
+      letter-spacing:.5px;
+    }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      height:52px; padding:0 18px; width:100%;
+      border:0; border-radius:var(--radius-md);
+      font: 800 16px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      cursor:pointer;
+      user-select:none; -webkit-tap-highlight-color:transparent;
+    }
+    .btn--primary{ background:var(--primary); color:#fff; }
+    .btn--ghost{ background:#fff; color:#0a0f14; }
+
+    .panel{
+      background:var(--panel);
+      border-radius:var(--radius-xl);
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+    .panel__title{
+      font: 800 20px/1.2 system-ui, -apple-system, "SF Pro Display", Segoe UI, Roboto;
+      margin:0 0 12px;
+    }
+    .muted{ color:var(--muted); }
+
+    /* ===== 4) ТАББАР ===== */
+    .tabbar{
+      position:fixed; left:0; right:0; bottom:0;
+      height:var(--tabbar-h);
+      background:#fff;
+      border-top-left-radius:16px; border-top-right-radius:16px;
+      padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));
+      display:flex; justify-content:center; align-items:center;
+      box-shadow: 0 -8px 24px rgba(0,0,0,.28);
+      z-index:100;
+      width:100%; max-width:100%;
+    }
+    .tabbar__inner{
+      width:100%; max-width:var(--maxw);
+      display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+    }
+    .tab{
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      height:56px; border-radius:12px;
+      color:#5b6b7a; text-decoration:none; font-weight:800; font-size:13px;
+      gap:4px;
+    }
+    .tab--active{ color:#111; background:#f4f6f8; }
+
+    /* ===== 5) ПЕРЕКЛЮЧАТЕЛИ ЭКРАНОВ ===== */
+    .screen{ display:none; }
+    .screen--active{ display:block; }
+
+    /* ===== 6) ФОРМА ПЕРЕВОДА ===== */
+    .form{ display:grid; gap:12px; }
+    .field label{
+      display:block; margin:0 0 6px; font-weight:800; color:#dfe7ef;
+    }
+    .input{
+      width:100%; height:48px; border-radius:12px; border:1px solid #1f2a33;
+      background:#0f1620; color:#fff; padding:0 14px; font-weight:700;
+      outline:none;
+    }
+    .input::placeholder{ color:#8aa0b3; }
+    .help{ font-size:12px; color:#8aa0b3; }
+
+    /* ===== 7) СПИСОК ИСТОРИИ ===== */
+    .history{ display:grid; gap:10px; }
+    .item{
+      background:#0f1620; border:1px solid #1f2a33;
+      border-radius:14px; padding:12px 14px;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .pos{ color:var(--success); font-weight:900; }
+    .neg{ color:var(--danger);  font-weight:900; }
+    .title{ font-weight:800; }
+
+    /* Защита от “выпирания” чего-либо */
+    .card, .panel, .item, .row, .input, .btn { min-width:0; }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- ГЛАВНАЯ -->
+    <main id="screen-home" class="screen screen--active">
+      <section class="card">
+        <div class="card__title">Кошелёк</div>
+        <div id="userId" class="id">ID: —</div>
+        <div class="balance"><span id="balance">0</span> ₽</div>
+        <div class="row">
+          <button class="btn btn--primary" id="add100">Пополнить</button>
+          <button class="btn btn--ghost" id="withdraw100">Вывести</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3 class="panel__title">Быстрые действия</h3>
+        <div class="row">
+          <button class="btn" id="toTransfer" style="background:#102335;color:#fff;">↔️ Перевод</button>
+          <button class="btn" id="toHistory" style="background:#102335;color:#fff;">🧾 История</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- ПЕРЕВОД -->
+    <section id="screen-transfer" class="screen">
+      <div class="panel">
+        <h3 class="panel__title">Перевод</h3>
+        <form id="transferForm" class="form" onsubmit="return false;">
+          <div class="field">
+            <label for="toId">Кому (Telegram user ID)</label>
+            <input class="input" id="toId" type="number" inputmode="numeric" placeholder="Например: 123456789" />
+            <div class="help">Для тестов можно ввести свой ID и отправить самому себе.</div>
+          </div>
+          <div class="field">
+            <label for="amount">Сумма (₽)</label>
+            <input class="input" id="amount" type="number" step="0.01" min="0.01" placeholder="Например: 100" />
+          </div>
+          <button class="btn btn--primary" id="sendBtn">Отправить</button>
+          <div id="transferMsg" class="help"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ИСТОРИЯ -->
+    <section id="screen-history" class="screen">
+      <div class="panel">
+        <h3 class="panel__title">История</h3>
+        <div id="history" class="history"></div>
+      </div>
+    </section>
+
+    <div class="content"></div>
+  </div>
+
+  <!-- ТАББАР -->
+  <nav class="tabbar">
+    <div class="tabbar__inner">
+      <a href="#home"     class="tab tab--active" data-tab="home">🏠 <span>Главная</span></a>
+      <a href="#transfer" class="tab"            data-tab="transfer">↔️ <span>Перевод</span></a>
+      <a href="#history"  class="tab"            data-tab="history">🧾 <span>История</span></a>
+    </div>
+  </nav>
+
+  <script>
+    // ===== Телеграм Bootstrap =====
+    const tg = window.Telegram?.WebApp;
+    if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
+
+    // ===== Утилиты =====
+    const $ = (sel) => document.querySelector(sel);
+    const API = {
+      async me(user_id){ const r = await fetch(`/api/me?user_id=${user_id}`); return r.json(); },
+      async history(user_id){ const r = await fetch(`/api/history?user_id=${user_id}`); return r.json(); },
+      async transfer(from_user_id, to_user_id, amount){
+        const r = await fetch(`/api/transfer`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ from_user_id, to_user_id, amount: Number(amount) })
+        });
+        if(!r.ok){ const err = await r.json().catch(()=>({detail:'Ошибка'})); throw new Error(err.detail||'Ошибка'); }
+        return r.json();
+      }
+    };
+
+    function detectUserId(){
+      // 1) Telegram Mini App
+      const id = tg?.initDataUnsafe?.user?.id;
+      if (id) return id;
+      // 2) Фолбэк для тестов в браузере
+      const m = location.search.match(/[?&]user_id=(\d+)/);
+      return m ? Number(m[1]) : null;
+    }
+
+    const state = {
+      userId: detectUserId(),
+      balance: 0
+    };
+
+    // ===== Рендер =====
+    async function refreshAll(){
+      if(!state.userId){
+        alert('Не удалось определить user_id. Откройте страницу из Telegram или добавьте ?user_id=XXXXX в адрес.');
+        return;
+      }
+      $("#userId").textContent = `ID: ${state.userId}`;
+      await refreshBalance();
+      await refreshHistory();
+    }
+
+    async function refreshBalance(){
+      const data = await API.me(state.userId);
+      state.balance = data.balance ?? 0;
+      $("#balance").textContent = (Math.round(state.balance*100)/100).toLocaleString('ru-RU');
+    }
+
+    async function refreshHistory(){
+      const box = $("#history");
+      box.innerHTML = '';
+      const data = await API.history(state.userId);
+      (data.items || []).forEach(it=>{
+        const li = document.createElement('div');
+        li.className = 'item';
+        const amount = Number(it.amount||0);
+        li.innerHTML = `
+          <div class="title">${it.title||'Транзакция'}</div>
+          <div class="${amount>=0?'pos':'neg'}">${amount>0?'+':''}${amount.toLocaleString('ru-RU')} ₽</div>
+        `;
+        box.appendChild(li);
+      });
+      if(!box.children.length){
+        const empty = document.createElement('div');
+        empty.className='muted';
+        empty.style.padding='8px';
+        empty.textContent='Пока нет операций';
+        box.appendChild(empty);
+      }
+    }
+
+    // ===== Навигация =====
+    const screens = {
+      home: $("#screen-home"),
+      transfer: $("#screen-transfer"),
+      history: $("#screen-history")
+    };
+    function setTab(tab){
+      document.querySelectorAll('.tab').forEach(el=>{
+        el.classList.toggle('tab--active', el.dataset.tab===tab);
+      });
+      Object.entries(screens).forEach(([k,el])=>{
+        el.classList.toggle('screen--active', k===tab);
+      });
+      if (tab==='history') refreshHistory();
+      if (tg) try { tg.HapticFeedback?.impactOccurred('light'); } catch(e){}
+    }
+    document.querySelectorAll('.tab').forEach(el=>{
+      el.addEventListener('click', (e)=>{ e.preventDefault(); setTab(el.dataset.tab); });
+    });
+    $("#toTransfer").addEventListener('click', ()=> setTab('transfer'));
+    $("#toHistory").addEventListener('click',  ()=> setTab('history'));
+
+    // ===== Действия на главной =====
+    $("#add100").addEventListener('click', async ()=>{
+      try{
+        await API.transfer(state.userId, state.userId, 100);
+        await refreshAll();
+      }catch(err){ alert(err.message||'Ошибка'); }
+    });
+    $("#withdraw100").addEventListener('click', async ()=>{
+      try{
+        await API.transfer(state.userId, state.userId, -100); // если на бэке запрет на отрицательные — уберите
+        await refreshAll();
+      }catch(err){ alert(err.message||'Ошибка'); }
+    });
+
+    // ===== Перевод =====
+    $("#sendBtn").addEventListener('click', async ()=>{
+      const toId = Number($("#toId").value.trim());
+      const amount = Number($("#amount").value.trim());
+      const out = $("#transferMsg");
+      out.textContent = '';
+      if(!toId || !amount || amount<=0){ out.textContent='Введите корректные данные'; return; }
+      try{
+        await API.transfer(state.userId, toId, amount);
+        out.style.color = '#86efac';
+        out.textContent = '✅ Перевод выполнен';
+        $("#amount").value = '';
+        await refreshAll();
+        if (tg) try { tg.HapticFeedback?.notificationOccurred('success'); } catch(e){}
+      }catch(err){
+        out.style.color = '#fca5a5';
+        out.textContent = '❌ ' + (err.message||'Ошибка');
+        if (tg) try { tg.HapticFeedback?.notificationOccurred('error'); } catch(e){}
+      }
+    });
+
+    // Старт
+    refreshAll();
+  </script>
+</body>
+</html>
